@@ -21,8 +21,8 @@ The comparison focuses on:
 1. Clone the repository
 2. Download the dataset from [here](https://data.4tu.nl/datasets/90d13261-b0fe-444a-b408-c5a63db3d887/1).
 3. Unpack the data and make sure to follow this stucture:
-
-`data
+```
+data
 |-- annotations
     |-- all_annotations.json
     |-- split_mapping.json
@@ -39,11 +39,12 @@ The comparison focuses on:
 |-- timeseries
     |-- ts_loc1_1
     |-- ts_loc1_2
-    |-- ts_loc5_1`
+    |-- ts_loc5_1
+```
 
-    4. Prepare the data with`prepare_data.ipynb`, the structure should be like this:
-
-`data
+4. Prepare the data with`prepare_data.ipynb`, the structure should be like this:
+```
+data
 |-- annotations
     |-- split_<trainsize>_<testsize>
         |-- test
@@ -69,4 +70,12 @@ The comparison focuses on:
     |-- ts_loc1_1
     |-- ts_loc1_2
     |-- ts_loc5_1
-`
+```
+
+## 🖥️ Usage
+
+Run the `main.py` with this command:
+```
+python main.py --model YOLO --location 1 --yolo_test_path ./data/annotations/split_80_20/test/images --yolo_model_path ./data/pretrained_yolo_models/best_model.pt --n_to_visualize 10
+```
+
