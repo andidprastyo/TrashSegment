@@ -10,10 +10,6 @@ from visualization import visualize_example
 from dataset import RiverSegmentationDataset
 
 from models.yolo import YOLOSegmenter
-from models.persam import PerSAMSegmenter
-from models.seggpt import SegGPTSegmenter
-from models.random_forest import RFSegmenter
-from models.unet import UNetSegmenter
 
 def main(args):
     # Set device
@@ -28,10 +24,10 @@ def main(args):
 
     # When matching the finetune images to the current image, take all finetune imgs
     if args.match_prompt_img:
-        args.prompt_imgs = [0,1,2,3,4]
+        args.prompt_imgs = [0, 1, 2, 3, 4]
 
-    # Make sure CLIPSeg doesn't load a finetune image
-    if args.model in ['CLIPSeg', 'YOLO']:
+    # Make sure YOLO doesn't load a finetune image
+    if args.model in ['YOLO']:
         args.prompt_imgs = []
 
     # Load dataset and posthoc mask
@@ -55,7 +51,7 @@ def main(args):
     metrics, visualization = get_metrics(output, args.location)
     metrics['test_time'] = segmenter.test_time
     metrics['train_time'] = segmenter.train_time
-    
+
     # Visualize output
     iou_summed_class = visualization['summed_class_per_img']
     visualize_example(output, iou_summed_class, args)
@@ -64,33 +60,33 @@ def main(args):
 
 def get_metrics(output, location):
     location_bins = {
-    '1' : np.array([0.125, 0.25])*1e6,
-    '2' : np.array([0.1, 0.2])*1e6,
-    '3' : np.array([0.1, 0.2])*1e6,
-    '4' : np.array([0.15, 0.3])*1e6,
-    '5' : np.array([0.005, 0.02])*1e6,
-    '6' : np.array([0.15, 0.3])*1e6,
+        '1': np.array([0.125, 0.25]) * 1e6,
+        '2': np.array([0.1, 0.2]) * 1e6,
+        '3': np.array([0.1, 0.2]) * 1e6,
+        '4': np.array([0.15, 0.3]) * 1e6,
+        '5': np.array([0.005, 0.02]) * 1e6,
+        '6': np.array([0.15, 0.3]) * 1e6,
     }
 
     iou_class, gt_mask_sizes, pred_mask_sizes, hamming_img = [], [], [], []
-    hamming_distance = {'neg' : [], 'pos' : []}
+    hamming_distance = {'neg': [], 'pos': []}
     for batch in tqdm(output):
         gt_masks, gt_class = batch['gt_masks'], batch['gt_masks_per_class']
         labels, pred = batch['labels'], batch['predicted_masks']
-        
+
         # Remove padding labels and masks
         if -1 in labels:
             non_padded = (labels != -1).nonzero(as_tuple=True)
             labels = labels[non_padded]
             gt_masks = gt_masks[non_padded]
 
-        # Get IoU per class 
-        combined_pred = (torch.sum(pred, dim=0) > 0).repeat([4,1,1])
-        iou_class_summed = iou(gt_class, combined_pred)   
+        # Get IoU per class
+        combined_pred = (torch.sum(pred, dim=0) > 0).repeat([4, 1, 1])
+        iou_class_summed = iou(gt_class, combined_pred)
         iou_class.append(iou_class_summed.unsqueeze(0))
 
         # In-system gt masks
-        in_system_masks =  gt_masks[np.where(np.array(labels) == 0)]
+        in_system_masks = gt_masks[np.where(np.array(labels) == 0)]
         gt_pixels = torch.sum(in_system_masks)
 
         # Hamming distance
@@ -117,10 +113,10 @@ def get_metrics(output, location):
 
     # Combine per-image metrics into general metrics
     iou_class = torch.concat(iou_class)
-    mean_iou = [round(x.item(),4) for x in torch.mean(iou_class, dim=0)]
-    std_iou = [round(x.item(),4) for x in torch.std(iou_class, dim=0)]
-    mean_hamming_pos = round(torch.mean(torch.Tensor(hamming_distance['pos'])).item(),3)
-    mean_hamming_neg = round(torch.mean(torch.Tensor(hamming_distance['neg'])).item(),3)
+    mean_iou = [round(x.item(), 4) for x in torch.mean(iou_class, dim=0)]
+    std_iou = [round(x.item(), 4) for x in torch.std(iou_class, dim=0)]
+    mean_hamming_pos = round(torch.mean(torch.Tensor(hamming_distance['pos'])).item(), 3)
+    mean_hamming_neg = round(torch.mean(torch.Tensor(hamming_distance['neg'])).item(), 3)
 
     # Compute IoU per bin
     gt_mask_sizes = np.array(gt_mask_sizes)
@@ -132,27 +128,27 @@ def get_metrics(output, location):
     binned_iou = {'small': iou_small, 'medium': iou_medium, 'large': iou_large}
 
     metrics = {
-        'iou_summed_class' : {
-            'in_system' : mean_iou[0], 'in_system_std' : std_iou[0], 
-            'out_system' : mean_iou[1], 'out_system_std' : std_iou[1],
-            'water' : mean_iou[2], 'water_std': std_iou[2],
-            'barrier' : mean_iou[3], 'barrier_std': std_iou[3]
-            }, 
-        'hamming' : {'pos': mean_hamming_pos, 'neg': mean_hamming_neg},
-        'binned_iou' : binned_iou
-        }
+        'iou_summed_class': {
+            'in_system': mean_iou[0], 'in_system_std': std_iou[0],
+            'out_system': mean_iou[1], 'out_system_std': std_iou[1],
+            'water': mean_iou[2], 'water_std': std_iou[2],
+            'barrier': mean_iou[3], 'barrier_std': std_iou[3]
+        },
+        'hamming': {'pos': mean_hamming_pos, 'neg': mean_hamming_neg},
+        'binned_iou': binned_iou
+    }
     visualization = {
-        'gt_mask_sizes' : gt_mask_sizes,
-        'pred_mask_sizes' : pred_mask_sizes,
-        'summed_class_per_img' : summed_class_per_image.tolist(),
-        'hamming_img' : hamming_img
+        'gt_mask_sizes': gt_mask_sizes,
+        'pred_mask_sizes': pred_mask_sizes,
+        'summed_class_per_img': summed_class_per_image.tolist(),
+        'hamming_img': hamming_img
     }
     return metrics, visualization
 
 def iou(gt, pred):
     intersection = gt & pred
     union = gt | pred
-    
+
     intersection = torch.sum(intersection, dim=[-1, -2])
     union = torch.sum(union, dim=[-1, -2])
 
@@ -172,13 +168,8 @@ def set_seed(seed: int = 42) -> None:
     print(f"Random seed set as {seed}")
 
 segment_call = {
-    'PerSAM' : PerSAMSegmenter,
-    'SegGPT' : SegGPTSegmenter,
-    'RandomForest' : RFSegmenter,
-    'YOLO' : YOLOSegmenter,
-    'unet': UNetSegmenter
-    }
-
+    'YOLO': YOLOSegmenter
+}
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -190,28 +181,16 @@ if __name__ == '__main__':
     parser.add_argument('--timeseries', default=None, help='Add path to folder to predict on data without ground truth annotations. Bypasses visualization and metric computation.')
 
     # Experiment settings
-    parser.add_argument('--model', default='SegGPT', choices=segment_call.keys(), help='Dictates which model to use, choices are "PerSAM", "SegGPT", "RandomForest", "YOLO", and "UNet')
+    parser.add_argument('--model', default='YOLO', choices=segment_call.keys(), help='Dictates which model to use, choices are "RandomForest", "YOLO", and "UNet')
     parser.add_argument('--location', default='1', choices=['1', '2', '3', '4', '5', '6'], type=str, help='Which location to use, number between 1 and 6 as a string')
     parser.add_argument('--remove_posthoc', action='store_true', default=True, help='Enable flag to remove irrelevant masks after prediction. These are masks that are outside of the area of interest (the river).')
     parser.add_argument('--prompt_imgs', default=[0], help='Which image(s) to use as prompts')
     parser.add_argument('--match_prompt_img', action='store_true', default=False, help='Enable to find the best prompt image for each testing image, using image embeddings.')
     parser.add_argument('--n_patches', type=int, default=1, help='Set to >1 to divide each axis of the image into patches. So --n_patches==3 makes 9 patches total')
 
-    # SegGPT
-    parser.add_argument('--binary_mask_cutoff', default=0.8, type=float, help='Dictates the cutoff for the logit output of SegGPT to convert to a binary mask.')
-
-    # PerSAM
-    parser.add_argument('--min_feature_sim', default=0.1, type=float, help='When mean feature similarity drops below this value, prediction of masks stops.')
-    parser.add_argument('--persam_training', action='store_true', default=False, help='Use flag to use PerSAM-F instead of PerSAM.')
-
     # YOLO
     parser.add_argument('--yolo_test_path', default=None, help='Path to folder containing images for testing')
     parser.add_argument('--yolo_model_path', default='./models/yolo_seg_custom.pt', help='Path to pretrained YOLO model')
-    
-    # UNet
-    parser.add_argument('--unet_model_path', default='./models/unet_model.pt', help='Path to pretrained U-Net model weights')
-    parser.add_argument('--unet_input_height', type=int, default=512, help='Input height for U-Net model')
-    parser.add_argument('--unet_input_width', type=int, default=512, help='Input width for U-Net model')
 
     args = parser.parse_args()
     assert not ((args.model == 'YOLO') and (args.yolo_test_path is None))
