@@ -10,6 +10,7 @@ from visualization import visualize_example
 from dataset import RiverSegmentationDataset
 
 from models.yolo import YOLOSegmenter
+from models.unet_segmenter import UNetSegmenter
 
 def main(args):
     # Set device
@@ -168,7 +169,8 @@ def set_seed(seed: int = 42) -> None:
     print(f"Random seed set as {seed}")
 
 segment_call = {
-    'YOLO': YOLOSegmenter
+    'YOLO': YOLOSegmenter,
+    'UNet': UNetSegmenter,
 }
 
 if __name__ == '__main__':
@@ -191,6 +193,9 @@ if __name__ == '__main__':
     # YOLO
     parser.add_argument('--yolo_test_path', default=None, help='Path to folder containing images for testing')
     parser.add_argument('--yolo_model_path', default='./models/yolo_seg_custom.pt', help='Path to pretrained YOLO model')
+
+    # UNet
+    parser.add_argument('--unet_model_path', default='./models/unet.pth', help='Path to pretrained UNet model')
 
     args = parser.parse_args()
     assert not ((args.model == 'YOLO') and (args.yolo_test_path is None))
